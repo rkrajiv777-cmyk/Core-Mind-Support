@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin - MLM Price List</title>
+  <style>
+    body{font-family:Arial, sans-serif;margin:16px;}
+    .card{border:1px solid #ddd;border-radius:12px;padding:12px;box-shadow:0 1px 6px rgba(0,0,0,.04);max-width:1200px;}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+    .muted{color:#666;font-size:12px;}
+    table{width:100%;border-collapse:collapse;}
+    th,td{border-bottom:1px solid #eee;padding:8px;vertical-align:top;}
+    th{background:#fafafa;}
+    input,select,button{padding:8px;border-radius:10px;border:1px solid #ccc;}
+    button{cursor:pointer;background:#fff;}
+    .btnPrimary{background:#111;color:#fff;border-color:#111;}
+    .danger{color:#b00020;}
+    .pill{display:inline-block;background:#f3f3f3;border-radius:999px;padding:3px 10px;font-size:12px;}
+    .grid{display:grid;grid-template-columns:1fr;gap:12px;}
+    .w120{width:120px;}
+    .w90{width:90px;}
+  </style>
+</head>
+<body>
+  <h2 style="margin:0 0 6px;">Admin Panel</h2>
+  <div class="muted">Products + Slab Prices + Shipping Settings • Data browser localStorage me save hota hai</div>
+
+  <div class="card" id="loginCard" style="margin-top:12px;">
+    <h3 style="margin:0 0 10px;">Login</h3>
+    <div class="row">
+      <input id="adminId" placeholder="Admin ID"/>
+      <input id="adminPass" placeholder="Password" type="password"/>
+      <button class="btnPrimary" id="loginBtn">Login</button>
+    </div>
+    <div class="muted" style="margin-top:8px;">
+      First time default: <b>admin</b> / <b>SBJ@12345</b>
+    </div>
+  </div>
+
+  <div class="card" id="appCard" style="display:none;margin-top:12px;">
+    <div class="row" style="justify-content:space-between;">
+      <h3 style="margin:0;">Manage Price List</h3>
+      <div class="row">
+        <button id="logoutBtn">Logout</button>
+        <button id="exportBtn">Export JSON</button>
+        <input type="file" id="importFile" accept="application/json"/>
+      </div>
+    </div>
+
+    <!-- SHIPPING SETTINGS -->
+    <div class="card" style="margin-top:12px;background:#fafafa;">
+      <h4 style="margin:0 0 10px;">Shipping Settings</h4>
+      <div class="row">
+        <div>
+          <div class="muted">Mode</div>
+          <select id="shipMode">
+            <option value="flat">Flat Shipping</option>
+            <option value="free_above">Free Above Amount</option>
+          </select>
+        </div>
+        <div>
+          <div class="muted">Flat Shipping ₹</div>
+          <input id="shipFlat" type="number" min="0" step="1" value="0"/>
+        </div>
+        <div>
+          <div class="muted">Free Above ₹</div>
+          <input id="shipFreeAbove" type="number" min="0" step="1" value="0"/>
+        </div>
+        <button id="saveShip" class="btnPrimary">Save Shipping</button>
+        <span class="muted">User page pe manual shipping > 0 ho to override ho jayega.</span>
+      </div>
+    </div>
+
+    <!-- ADD PRODUCT -->
+    <div class="card" style="margin-top:12px;">
+      <h4 style="margin:0 0 10px;">Add Product</h4>
+      <div class="row">
+        <input id="pName" placeholder="Product name" style="flex:1;min-width:260px;"/>
+        <input id="pVP" placeholder="VP" type="number" min="0" step="0.01" class="w120"/>
+        <input id="pMRP" placeholder="MRP" type="number" min="0" step="1" class="w120"/>
+        <input id="p15" placeholder="15%" type="number" min="0" step="1" class="w90"/>
+        <input id="p25" placeholder="25%" type="number" min="0" step="1" class="w90"/>
+        <input id="p35" placeholder="35%" type="number" min="0" step="1" class="w90"/>
+        <input id="p42" placeholder="42%" type="number" min="0" step="1" class="w90"/>
+        <input id="p50" placeholder="50%" type="number" min="0" step="1" class="w90"/>
+        <button id="addBtn" class="btnPrimary">Add</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">
+        Tip: Aap MRP + VP + slab fixed prices sab bhar sakte ho.
+      </div>
+    </div>
+
+    <!-- LIST -->
+    <div class="card" style="margin-top:12px;">
+      <div class="row" style="justify-content:space-between;">
+        <h4 style="margin:0;">Products</h4>
+        <div class="row">
+          <input id="search" placeholder="Search..." />
+          <span class="pill">Saved for index.html</span>
+        </div>
+      </div>
+
+      <div style="margin-top:10px;max-height:520px;overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="right">VP</th>
+              <th class="right">MRP</th>
+              <th class="right">15%</th>
+              <th class="right">25%</th>
+              <th class="right">35%</th>
+              <th class="right">42%</th>
+              <th class="right">50%</th>
+              <th class="right"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CREDS -->
+    <div class="card" style="margin-top:12px;background:#fafafa;">
+      <h4 style="margin:0 0 10px;">Change Admin Credentials</h4>
+      <div class="row">
+        <input id="newId" placeholder="New Admin ID"/>
+        <input id="newPass" placeholder="New Password" type="password"/>
+        <button id="saveCreds">Save</button>
+      </div>
+      <div class="muted">Password: uppercase + number + special char recommended.</div>
+    </div>
+
+  </div>
+
+<script>
+/* ------------------ STORAGE ------------------ */
+const KEY_PRODUCTS = "mlm_products_v2";
+const KEY_CART     = "mlm_cart_v2";     // (unused here, but kept for future)
+const KEY_SETTINGS = "mlm_settings_v2";
+const KEY_CREDS    = "mlm_admin_creds_v2";
+const KEY_SESSION  = "mlm_admin_session_v2";
+
+function safeParse(s, fallback){ try{ return JSON.parse(s); }catch{ return fallback; } }
+function num(x){ return Number(x)||0; }
+function esc(s){ return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+
+const DEFAULT_SETTINGS = {
+  shipping_mode: "flat",
+  shipping_flat: 0,
+  shipping_free_above: 0
+};
+
+const DEFAULT_CREDS = { id:"admin", pass:"SBJ@12345" };
+
+function loadCreds(){
+  const c = safeParse(localStorage.getItem(KEY_CREDS), null);
+  if(!c){ localStorage.setItem(KEY_CREDS, JSON.stringify(DEFAULT_CREDS)); return DEFAULT_CREDS; }
+  return c;
+}
+function setSession(on){ localStorage.setItem(KEY_SESSION, on ? "1" : "0"); }
+function isLoggedIn(){ return localStorage.getItem(KEY_SESSION) === "1"; }
+
+function loadProducts(){
+  const p = safeParse(localStorage.getItem(KEY_PRODUCTS), []);
+  if(!Array.isArray(p)) return [];
+  p.forEach(x => { if(!x.slabPrices) x.slabPrices = {}; });
+  return p;
+}
+function saveProducts(list){ localStorage.setItem(KEY_PRODUCTS, JSON.stringify(list)); }
+
+function loadSettings(){
+  const s = safeParse(localStorage.getItem(KEY_SETTINGS), null);
+  if(!s){ localStorage.setItem(KEY_SETTINGS, JSON.stringify(DEFAULT_SETTINGS)); return DEFAULT_SETTINGS; }
+  return {...DEFAULT_SETTINGS, ...s};
+}
+function saveSettings(s){ localStorage.setItem(KEY_SETTINGS, JSON.stringify(s)); }
+
+/* ------------------ UI ------------------ */
+const loginCard = document.getElementById("loginCard");
+const appCard = document.getElementById("appCard");
+const tbody = document.getElementById("tbody");
+const searchEl = document.getElementById("search");
+
+function showApp(){
+  loginCard.style.display="none";
+  appCard.style.display="block";
+  loadShipUI();
+  render();
+}
+function showLogin(){
+  loginCard.style.display="block";
+  appCard.style.display="none";
+}
+
+document.getElementById("loginBtn").onclick = () => {
+  const id = document.getElementById("adminId").value.trim();
+  const pass = document.getElementById("adminPass").value;
+  const creds = loadCreds();
+  if(id === creds.id && pass === creds.pass){
+    setSession(true);
+    showApp();
+  }else{
+    alert("Wrong ID/Password");
+  }
+};
+
+document.getElementById("logoutBtn").onclick = () => {
+  setSession(false);
+  showLogin();
+};
+
+/* ------------------ SHIPPING ------------------ */
+function loadShipUI(){
+  const s = loadSettings();
+  document.getElementById("shipMode").value = s.shipping_mode;
+  document.getElementById("shipFlat").value = num(s.shipping_flat);
+  document.getElementById("shipFreeAbove").value = num(s.shipping_free_above);
+}
+
+document.getElementById("saveShip").onclick = () => {
+  const s = loadSettings();
+  s.shipping_mode = document.getElementById("shipMode").value;
+  s.shipping_flat = num(document.getElementById("shipFlat").value);
+  s.shipping_free_above = num(document.getElementById("shipFreeAbove").value);
+  saveSettings(s);
+  alert("Shipping settings saved.");
+};
+
+/* ------------------ ADD PRODUCT ------------------ */
+document.getElementById("addBtn").onclick = () => {
+  const name = document.getElementById("pName").value.trim();
+  const vp = num(document.getElementById("pVP").value);
+  const mrp = num(document.getElementById("pMRP").value);
+
+  if(!name){ alert("Product name required"); return; }
+
+  const p15 = num(document.getElementById("p15").value);
+  const p25 = num(document.getElementById("p25").value);
+  const p35 = num(document.getElementById("p35").value);
+  const p42 = num(document.getElementById("p42").value);
+  const p50 = num(document.getElementById("p50").value);
+
+  const list = loadProducts();
+  list.push({
+    id: crypto.randomUUID(),
+    name, vp, mrp,
+    slabPrices: {"15":p15,"25":p25,"35":p35,"42":p42,"50":p50}
+  });
+  saveProducts(list);
+
+  ["pName","pVP","pMRP","p15","p25","p35","p42","p50"].forEach(id => document.getElementById(id).value="");
+  render();
+};
+
+/* ------------------ RENDER LIST ------------------ */
+function render(){
+  const q = (searchEl.value||"").toLowerCase().trim();
+  const list = loadProducts().filter(p => p.name.toLowerCase().includes(q));
+
+  tbody.innerHTML = "";
+  list.forEach((p, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input value="${esc(p.name)}" style="width:100%"></td>
+      <td class="right"><input type="number" min="0" step="0.01" value="${num(p.vp)}" class="w120"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.mrp)}" class="w120"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.slabPrices?.["15"])}" class="w90"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.slabPrices?.["25"])}" class="w90"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.slabPrices?.["35"])}" class="w90"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.slabPrices?.["42"])}" class="w90"></td>
+      <td class="right"><input type="number" min="0" step="1" value="${num(p.slabPrices?.["50"])}" class="w90"></td>
+      <td class="right"><button class="danger">Delete</button></td>
+    `;
+
+    const inputs = tr.querySelectorAll("input");
+    const delBtn = tr.querySelector("button");
+
+    const all = loadProducts(); // full list
+    const realIndex = all.findIndex(x => x.id === p.id);
+
+    // live update
+    inputs[0].oninput = () => { all[realIndex].name = inputs[0].value.trim(); saveProducts(all); };
+    inputs[1].oninput = () => { all[realIndex].vp = num(inputs[1].value); saveProducts(all); };
+    inputs[2].oninput = () => { all[realIndex].mrp = num(inputs[2].value); saveProducts(all); };
+
+    const slabKeys = ["15","25","35","42","50"];
+    for(let k=0;k<slabKeys.length;k++){
+      inputs[3+k].oninput = () => {
+        all[realIndex].slabPrices = all[realIndex].slabPrices || {};
+        all[realIndex].slabPrices[slabKeys[k]] = num(inputs[3+k].value);
+        saveProducts(all);
+      };
+    }
+
+    delBtn.onclick = () => {
+      all.splice(realIndex,1);
+      saveProducts(all);
+      render();
+    };
+
+    tbody.appendChild(tr);
+  });
+}
+
+searchEl.oninput = render;
+
+/* ------------------ EXPORT / IMPORT ------------------ */
+document.getElementById("exportBtn").onclick = () => {
+  const list = loadProducts();
+  const blob = new Blob([JSON.stringify(list, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "price-list.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+document.getElementById("importFile").onchange = async (e) => {
+  const file = e.target.files?.[0];
+  if(!file) return;
+  const text = await file.text();
+  const data = safeParse(text, null);
+
+  if(!Array.isArray(data)){
+    alert("Invalid JSON. Array expected.");
+    return;
+  }
+
+  // normalize schema
+  const normalized = data.map(x => ({
+    id: x.id || crypto.randomUUID(),
+    name: String(x.name||"").trim(),
+    vp: num(x.vp),
+    mrp: num(x.mrp),
+    slabPrices: {
+      "15": num(x.slabPrices?.["15"] ?? x["15"] ?? 0),
+      "25": num(x.slabPrices?.["25"] ?? x["25"] ?? 0),
+      "35": num(x.slabPrices?.["35"] ?? x["35"] ?? 0),
+      "42": num(x.slabPrices?.["42"] ?? x["42"] ?? 0),
+      "50": num(x.slabPrices?.["50"] ?? x["50"] ?? 0),
+    }
+  })).filter(x => x.name);
+
+  saveProducts(normalized);
+  alert("Imported successfully.");
+  render();
+};
+
+/* ------------------ CREDS ------------------ */
+document.getElementById("saveCreds").onclick = () => {
+  const newId = document.getElementById("newId").value.trim() || "admin";
+  const newPass = document.getElementById("newPass").value;
+  if(!newPass || newPass.length < 6){
+    alert("Password minimum 6 characters.");
+    return;
+  }
+  localStorage.setItem(KEY_CREDS, JSON.stringify({id:newId, pass:newPass}));
+  alert("Saved. Next login new creds se hoga.");
+};
+
+/* ------------------ INIT ------------------ */
+if(isLoggedIn()) showApp(); else showLogin();
+</script>
+</body>
+</html>
