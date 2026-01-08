@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Admin - MLM Price List</title>
+  <title>SBJ's Core Vitality Mission - Admin</title>
   <style>
     body{font-family:Arial, sans-serif;margin:16px;}
     .card{border:1px solid #ddd;border-radius:12px;padding:12px;box-shadow:0 1px 6px rgba(0,0,0,.04);max-width:1200px;}
@@ -20,11 +20,22 @@
     .grid{display:grid;grid-template-columns:1fr;gap:12px;}
     .w120{width:120px;}
     .w90{width:90px;}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+    .brand{font-size:18px;font-weight:700;margin:0;}
   </style>
 </head>
 <body>
-  <h2 style="margin:0 0 6px;">Admin Panel</h2>
-  <div class="muted">Products + Slab Prices + Shipping Settings • Data browser localStorage me save hota hai</div>
+
+  <div class="topbar">
+    <div>
+      <h1 class="brand">SBJ's Core Vitality Mission</h1>
+      <div class="muted">Admin Panel • Products + Slab Prices + Shipping • Data browser localStorage me save hota hai</div>
+    </div>
+    <div class="row">
+      <a href="./index.html" class="pill" style="text-decoration:none;color:#111;">Home (index.html)</a>
+      <button id="logoutBtnTop" class="btnPrimary" style="display:none;">Logout</button>
+    </div>
+  </div>
 
   <div class="card" id="loginCard" style="margin-top:12px;">
     <h3 style="margin:0 0 10px;">Login</h3>
@@ -42,9 +53,12 @@
     <div class="row" style="justify-content:space-between;">
       <h3 style="margin:0;">Manage Price List</h3>
       <div class="row">
-        <button id="logoutBtn">Logout</button>
+        <button id="logoutBtn" class="btnPrimary">Logout</button>
         <button id="exportBtn">Export JSON</button>
-        <input type="file" id="importFile" accept="application/json"/>
+        <label class="pill" style="cursor:pointer;">
+          Import JSON
+          <input type="file" id="importFile" accept="application/json" style="display:none;">
+        </label>
       </div>
     </div>
 
@@ -87,7 +101,7 @@
         <button id="addBtn" class="btnPrimary">Add</button>
       </div>
       <div class="muted" style="margin-top:8px;">
-        Tip: Aap MRP + VP + slab fixed prices sab bhar sakte ho.
+        Tip: MRP + VP + slab fixed prices sab bhar sakte ho.
       </div>
     </div>
 
@@ -137,7 +151,6 @@
 <script>
 /* ------------------ STORAGE ------------------ */
 const KEY_PRODUCTS = "mlm_products_v2";
-const KEY_CART     = "mlm_cart_v2";     // (unused here, but kept for future)
 const KEY_SETTINGS = "mlm_settings_v2";
 const KEY_CREDS    = "mlm_admin_creds_v2";
 const KEY_SESSION  = "mlm_admin_session_v2";
@@ -156,7 +169,10 @@ const DEFAULT_CREDS = { id:"admin", pass:"SBJ@12345" };
 
 function loadCreds(){
   const c = safeParse(localStorage.getItem(KEY_CREDS), null);
-  if(!c){ localStorage.setItem(KEY_CREDS, JSON.stringify(DEFAULT_CREDS)); return DEFAULT_CREDS; }
+  if(!c){
+    localStorage.setItem(KEY_CREDS, JSON.stringify(DEFAULT_CREDS));
+    return DEFAULT_CREDS;
+  }
   return c;
 }
 function setSession(on){ localStorage.setItem(KEY_SESSION, on ? "1" : "0"); }
@@ -172,7 +188,10 @@ function saveProducts(list){ localStorage.setItem(KEY_PRODUCTS, JSON.stringify(l
 
 function loadSettings(){
   const s = safeParse(localStorage.getItem(KEY_SETTINGS), null);
-  if(!s){ localStorage.setItem(KEY_SETTINGS, JSON.stringify(DEFAULT_SETTINGS)); return DEFAULT_SETTINGS; }
+  if(!s){
+    localStorage.setItem(KEY_SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
+    return DEFAULT_SETTINGS;
+  }
   return {...DEFAULT_SETTINGS, ...s};
 }
 function saveSettings(s){ localStorage.setItem(KEY_SETTINGS, JSON.stringify(s)); }
@@ -182,22 +201,33 @@ const loginCard = document.getElementById("loginCard");
 const appCard = document.getElementById("appCard");
 const tbody = document.getElementById("tbody");
 const searchEl = document.getElementById("search");
+const logoutBtn = document.getElementById("logoutBtn");
+const logoutBtnTop = document.getElementById("logoutBtnTop");
 
 function showApp(){
   loginCard.style.display="none";
   appCard.style.display="block";
+  logoutBtnTop.style.display="inline-block";
   loadShipUI();
   render();
 }
 function showLogin(){
   loginCard.style.display="block";
   appCard.style.display="none";
+  logoutBtnTop.style.display="none";
+}
+
+function logoutAdmin(){
+  setSession(false);
+  // ✅ redirect to home page
+  window.location.href = "./index.html";
 }
 
 document.getElementById("loginBtn").onclick = () => {
   const id = document.getElementById("adminId").value.trim();
   const pass = document.getElementById("adminPass").value;
   const creds = loadCreds();
+
   if(id === creds.id && pass === creds.pass){
     setSession(true);
     showApp();
@@ -206,10 +236,8 @@ document.getElementById("loginBtn").onclick = () => {
   }
 };
 
-document.getElementById("logoutBtn").onclick = () => {
-  setSession(false);
-  showLogin();
-};
+logoutBtn.onclick = logoutAdmin;
+logoutBtnTop.onclick = logoutAdmin;
 
 /* ------------------ SHIPPING ------------------ */
 function loadShipUI(){
@@ -257,10 +285,10 @@ document.getElementById("addBtn").onclick = () => {
 /* ------------------ RENDER LIST ------------------ */
 function render(){
   const q = (searchEl.value||"").toLowerCase().trim();
-  const list = loadProducts().filter(p => p.name.toLowerCase().includes(q));
+  const list = loadProducts().filter(p => (p.name||"").toLowerCase().includes(q));
 
   tbody.innerHTML = "";
-  list.forEach((p, idx) => {
+  list.forEach((p) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><input value="${esc(p.name)}" style="width:100%"></td>
@@ -277,8 +305,9 @@ function render(){
     const inputs = tr.querySelectorAll("input");
     const delBtn = tr.querySelector("button");
 
-    const all = loadProducts(); // full list
+    const all = loadProducts();
     const realIndex = all.findIndex(x => x.id === p.id);
+    if(realIndex < 0) return;
 
     // live update
     inputs[0].oninput = () => { all[realIndex].name = inputs[0].value.trim(); saveProducts(all); };
@@ -295,9 +324,13 @@ function render(){
     }
 
     delBtn.onclick = () => {
-      all.splice(realIndex,1);
-      saveProducts(all);
-      render();
+      const again = loadProducts();
+      const idx = again.findIndex(x => x.id === p.id);
+      if(idx >= 0){
+        again.splice(idx,1);
+        saveProducts(again);
+        render();
+      }
     };
 
     tbody.appendChild(tr);
@@ -320,6 +353,7 @@ document.getElementById("exportBtn").onclick = () => {
 document.getElementById("importFile").onchange = async (e) => {
   const file = e.target.files?.[0];
   if(!file) return;
+
   const text = await file.text();
   const data = safeParse(text, null);
 
@@ -346,16 +380,21 @@ document.getElementById("importFile").onchange = async (e) => {
   saveProducts(normalized);
   alert("Imported successfully.");
   render();
+
+  // reset input so same file can be re-imported if needed
+  e.target.value = "";
 };
 
 /* ------------------ CREDS ------------------ */
 document.getElementById("saveCreds").onclick = () => {
   const newId = document.getElementById("newId").value.trim() || "admin";
   const newPass = document.getElementById("newPass").value;
+
   if(!newPass || newPass.length < 6){
     alert("Password minimum 6 characters.");
     return;
   }
+
   localStorage.setItem(KEY_CREDS, JSON.stringify({id:newId, pass:newPass}));
   alert("Saved. Next login new creds se hoga.");
 };
